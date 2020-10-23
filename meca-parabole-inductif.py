@@ -56,10 +56,10 @@ if __name__ == "__main__":
     """
     Variables à initialiser
     """
-    filename = 'meca-point_parabole_ok.csv'
-    movie = "meca-parabolique.mp4" #filename if the animation is saved
-    saveMovie = True #Sauvegarder au format mp4 (film)
-    fps = 25.
+    filename = 'meca-top.csv'
+    movie = "meca-parabolique-top.mp4" #filename if the animation is saved
+    saveMovie = False #Sauvegarder au format mp4 (film)
+    fps = 60.
     #Type de fit à faire pour les données : pas de fit avec une formule numérique (nofit) avec un spline quadratique (fitSpline) ou avec un polynôme quadratique en x et y (fitPoly)
     fitSpline = False 
     fitPoly = True
@@ -78,20 +78,27 @@ if __name__ == "__main__":
     t,dt = np.linspace(0,1./fps*(x.size-1),x.size,retstep=True)
     #Fit pour réduire les problèmes d'erreur numérique
     if fitSpline == True:
-        y_spl = UnivariateSpline(t,y,k=2)
-        x_spl = UnivariateSpline(t,x,k=2)
+        #On fait un spline sur y=f(t) et x=g(t), ici, pour k=2, le spline est équivalent à un modélisation parabolique
+        y_mod = UnivariateSpline(t,y,k=2)
+        x_mod = UnivariateSpline(t,x,k=2)
+        #On calcule les dérivées successives du spline
         vy=y_spl.derivative(n=1)(t)
         vx=x_spl.derivative(n=1)(t)
         a_y=y_spl.derivative(n=2)(t)
         a_x=x_spl.derivative(n=2)(t)
     elif nofit == True: 
+        #Calcul des dérivées de la trajectoire brute, les incertitudes sont trop élevées pour donner un résultat acceptable en général
         vy=np.gradient(y,dt)
         vx=np.gradient(x,dt)
         a_y=np.gradient(vy,dt)
         a_x=np.gradient(vx,dt)
     elif fitPoly == True:
+        #Modélisation polyomiale d'ordre 2 de y=f(t) et x=g(t)
         py = np.polyfit(t,y,2)
         px = np.polyfit(t,x,2)
+        #On recrée la trajectoire modélisée
+        y_mod = np.polyval(py,t)
+        x_mod = np.polyval(px,t)
         vxf = np.polyder(px)
         vyf = np.polyder(py)
         vx = np.polyval(vxf,t)
@@ -111,10 +118,13 @@ if __name__ == "__main__":
     
     #dessin de y=f(x)
     ax1=plt.subplot(1,2,1)
-    ax1.plot(x,y, label='trajectoire')
+    ax1.plot(x,y,linestyle='',marker='+', label='trajectoire réelle')
+    if fitPoly == True or fitPoly == True:
+        ax1.plot(x_mod,y_mod,linestyle='-',marker=None, label='trajectoire modélisée')
     ax1.set_xlabel('x (m)')
     ax1.set_ylim(bottom = np.min(y+a_y/15),top = np.max(y)*1.1)
     ax1.set_ylabel('y (m)')
+    ax1.legend(loc='lower right')
     #dessin de x,y = f(t)
     ax2=plt.subplot(3,2,2)
     ax2.plot(t,y, label='y')
@@ -140,15 +150,24 @@ if __name__ == "__main__":
     figs = [ax1, ax2, ax3, ax4] 
     for fi in figs:
         fi.axhline(0., linestyle='-', color='#dddddd')
-        fi.set_xlim(left=0.)
+        fi.set_xlim(left=-0.03)
     #lignes et points à animer
-    pointTraj, = ax1.plot([],[])
-    vTraj = ax1.quiver(x,y,[],[],scale = 30,label='v',color='blue')
-    aTraj = ax1.quiver(x,y,[],[],scale = 30,label='a',color='red')
+    #Point sur la trajecoire y=f(x)
+    pointTraj, = ax1.plot([],[],marker=None)#
+    #Les options 'xy' permettent de respecter les angles les minshaft/minlength suppriment les vecteurs de longueur 0
+    if fitPoly == True or fitPoly == True:
+        vTraj = ax1.quiver(x_mod,y_mod,[0.],[0.],angles='xy', scale_units='xy', scale=8,label='v',color='blue',minshaft = 1, minlength=0)
+        aTraj = ax1.quiver(x_mod,y_mod,[0.],[0.],angles='xy', scale_units='xy', scale=16,label='a',color='red',minshaft = 1, minlength=0)
+    else:
+        vTraj = ax1.quiver(x,y,[0.],[0.],angles='xy', scale_units='xy', scale=8,label='v',color='blue')
+        aTraj = ax1.quiver(x,y,[0.],[0.],angles='xy', scale_units='xy', scale=16,label='a',color='red')
+    #Points sur le graph x,y=f(t)
     pointx, = ax2.plot([],[],marker='o')
     pointy, = ax2.plot([],[],marker='o')
+    #Points sur le graph vx,vy=f(t)
     pointvx, = ax3.plot([],[],marker='o')
     pointvy, = ax3.plot([],[],marker='o')
+    #Points sur le graph ax,ay=f(t)
     pointax, = ax4.plot([],[],marker='o')
     pointay, = ax4.plot([],[],marker='o')
     #Faire l'animation
@@ -157,8 +176,8 @@ if __name__ == "__main__":
     writermp4 = animation.FFMpegWriter() 
     if saveMovie == True:
         ani.save(movie, writer=writermp4)
+    #Graphique un peu plus serré
     plt.tight_layout()
     plt.show()
-    pass
 
 
